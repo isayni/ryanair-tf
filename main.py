@@ -1,19 +1,22 @@
 #!/usr/bin/env python
 import requests
 import os
+'''
+Find cheapest round trips with Ryanair
+'''
 
 API_URL="https://services-api.ryanair.com/farfnd/v4/"
 
-DISCORD      = os.environ.get("DISCORD")
-CURRENCY     = os.environ.get("CURRENCY")
-DATE_FROM    = os.environ.get("DATE_FROM")
-DATE_TO      = os.environ.get("DATE_TO")
-DAYS_MIN     = int(os.environ.get("DAYS_MIN"))
-DAYS_MAX     = int(os.environ.get("DAYS_MAX"))
-HOME_AIRPORT = os.environ.get("HOME_AIRPORT")
-DEST_AIRPORT = os.environ.get("DEST_AIRPORT")
-PASSENGERS   = int(os.environ.get("PASSENGERS"))
-PRICE_MAX    = float(os.environ.get("PRICE_MAX"))
+DISCORD      = os.environ.get("DISCORD")          # discord webhook URL
+CURRENCY     = os.environ.get("CURRENCY")         # eg "PLN"
+DATE_FROM    = os.environ.get("DATE_FROM")        # eg "2024-06-01"
+DATE_TO      = os.environ.get("DATE_TO")          # eg "2024-06-30"
+DAYS_MIN     = int(os.environ.get("DAYS_MIN"))    # eg "3"
+DAYS_MAX     = int(os.environ.get("DAYS_MAX"))    # eg "6"
+HOME_AIRPORT = os.environ.get("HOME_AIRPORT")     # eg "KRK"
+DEST_AIRPORT = os.environ.get("DEST_AIRPORT")     # eg "FCO"
+PASSENGERS   = int(os.environ.get("PASSENGERS"))  # eg "3"
+PRICE_MAX    = float(os.environ.get("PRICE_MAX")) # eg "600"
 
 def notify(message):
     requests.post(DISCORD, json={"content": message})
