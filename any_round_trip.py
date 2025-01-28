@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from myproxies import sendRequest
+import myproxies
 import os
 import json
 '''
@@ -9,12 +9,12 @@ Find cheapest round trips with Ryanair
 API_URL="https://services-api.ryanair.com/farfnd/v4/"
 
 CURRENCY     = "PLN"
-DATE_FROM    = "2024-07-13"
-DATE_TO      = "2024-08-01"
-DAYS_MIN     = 2
-DAYS_MAX     = 4
+DATE_FROM    = "2025-02-02"
+DATE_TO      = "2025-02-28"
+DAYS_MIN     = 1
+DAYS_MAX     = 3
 HOME_AIRPORT = "KRK"
-PASSENGERS   = 4
+PASSENGERS   = 1
 PRICE_MAX    = 500
 
 params = {
@@ -30,7 +30,7 @@ params = {
     "priceValueTo": PRICE_MAX * PASSENGERS,
 }
 
-response = sendRequest(API_URL + "roundTripFares", params=params)
+response = myproxies.get(API_URL + "roundTripFares", params=params)
 
 fares = response.json()['fares']
 trips = {}
