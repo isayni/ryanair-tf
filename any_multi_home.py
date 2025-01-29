@@ -79,14 +79,14 @@ flightToFare = lambda flight, homeIata, homeCity, destIata, destCity: {
 
 createTrip = lambda outFare, returnFare: {
     'outbound': {
-        'home': outFare["outbound"]["departureAirport"]["city"]["name"],
-        'destination': outFare["outbound"]["arrivalAirport"]["city"]["name"],
+        'home': f'{outFare["outbound"]["departureAirport"]["city"]["name"]}/{outFare["outbound"]["departureAirport"]["iataCode"]}',
+        'destination': f'{outFare["outbound"]["arrivalAirport"]["city"]["name"]}/{outFare["outbound"]["arrivalAirport"]["iataCode"]}',
         'takeoff': outFare["outbound"]["departureDate"],
         'price': outFare["outbound"]["price"]["value"]
     },
     'inbound': {
-        'home': returnFare["outbound"]["departureAirport"]["city"]["name"],
-        'destination': returnFare["outbound"]["arrivalAirport"]["city"]["name"],
+        'home': f'{returnFare["outbound"]["departureAirport"]["city"]["name"]}/{returnFare["outbound"]["departureAirport"]["iataCode"]}',
+        'destination': f'{returnFare["outbound"]["arrivalAirport"]["city"]["name"]}/{returnFare["outbound"]["arrivalAirport"]["iataCode"]}',
         'takeoff': returnFare["outbound"]["departureDate"],
         'price': returnFare["outbound"]["price"]["value"]
     },
