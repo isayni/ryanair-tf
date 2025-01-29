@@ -9,9 +9,9 @@ find ryanair round trips allowing multiple options for the "home" airport
 '''
 
 API_URL      = "https://services-api.ryanair.com/farfnd/v4/"
-LOWEST_PRICE = 50
 
 CURRENCY      = os.getenv("CURRENCY", "EUR")              # eg EUR
+LOWEST_PRICE  = float(os.getenv("LOWEST_PRICE", 10))      # eg 10
 DATE_MIN      = os.getenv("DATE_MIN")                     # eg 2024-06-01
 DATE_MAX      = os.getenv("DATE_MAX")                     # eg 2024-06-30
 DAYS_MIN      = int(os.getenv("DAYS_MIN"))                # eg 3
@@ -93,15 +93,16 @@ createTrip = lambda outFare, returnFare: {
     'totalPrice': outFare["outbound"]["price"]["value"] + returnFare["outbound"]["price"]["value"]
 }
 
-def alternativeFlightsFilter(flight, maxPrice):
+def alternativeFlightsFilter(flight, minDate, maxDate, maxPrice):
     if flight['price'] is None:
         return False
     if flight['price']['value'] > maxPrice:
         return False
 
-    minDatetime = datetime.strptime(DATE_MIN, "%Y-%m-%d")
-    maxDatetime = datetime.strptime(DATE_MAX, "%Y-%m-%d")
+    minDatetime = datetime.strptime(minDate, "%Y-%m-%d")
+    maxDatetime = datetime.strptime(maxDate, "%Y-%m-%d")
     flightDatetime = datetime.fromisoformat(flight['departureDate'])
+
     if flightDatetime < minDatetime:
         return False
     if flightDatetime - timedelta(days=DAYS_MIN) > maxDatetime:
@@ -109,7 +110,7 @@ def alternativeFlightsFilter(flight, maxPrice):
 
     return True
 
-def findAlternativeFares(fare, maxPrice):
+def findAlternativeFares(fare, minDate, maxDate, maxPrice):
     home     = fare['outbound']['departureAirport']['iataCode']
     homeCity = fare['outbound']['departureAirport']['city']['name']
     dest     = fare['outbound']['arrivalAirport']['iataCode']
@@ -123,7 +124,7 @@ def findAlternativeFares(fare, maxPrice):
         }
 
         data = requests.get(API_URL + f"oneWayFares/{home}/{dest}/cheapestPerDay", params=params).json()
-        flights += list(filter(lambda f: alternativeFlightsFilter(f, maxPrice), data['outbound']['fares']))
+        flights += list(filter(lambda f: alternativeFlightsFilter(f, minDate, maxDate, maxPrice), data['outbound']['fares']))
 
     return [flightToFare(flight, home, homeCity, dest, destCity) for flight in flights]
 
@@ -134,27 +135,30 @@ if __name__ == "__main__":
         "departureAirportIataCodes": HOME_AIRPORTS,
         "outboundDepartureDateFrom": DATE_MIN,
         "outboundDepartureDateTo": DATE_MAX,
-        "priceValueTo": PRICE_MAX - LOWEST_PRICE,
+        "priceValueTo": int(PRICE_MAX - LOWEST_PRICE),
     }
     if "" not in DEST_AIRPORTS:
         params["arrivalAirportIataCodes"] = DEST_AIRPORTS
 
     outFares = []
     for fare in findCheapestFares(params):
-        outFares += findAlternativeFares(fare, PRICE_MAX - LOWEST_PRICE)
+        outFares += findAlternativeFares(fare, DATE_MIN, DATE_MAX, int(PRICE_MAX - LOWEST_PRICE))
 
     for outFare in outFares:
+        maxPrice = int(PRICE_MAX - outFare['outbound']['price']['value'])
+        minDate = addDaysToDate(outFare['outbound']['arrivalDate'], DAYS_MIN)
+        maxDate = addDaysToDate(outFare['outbound']['arrivalDate'], DAYS_MAX)
         params = {
             "currency": CURRENCY,
             "departureAirportIataCode": outFare['outbound']['arrivalAirport']['iataCode'],
             "arrivalAirportIataCodes": HOME_AIRPORTS,
-            "outboundDepartureDateFrom": addDaysToDate(outFare['outbound']['arrivalDate'], DAYS_MIN),
-            "outboundDepartureDateTo": addDaysToDate(outFare['outbound']['arrivalDate'], DAYS_MAX),
-            "priceValueTo": (PRICE_MAX - outFare['outbound']['price']['value']),
+            "outboundDepartureDateFrom": minDate,
+            "outboundDepartureDateTo": maxDate,
+            "priceValueTo": maxPrice
         }
         returnFares = []
         for fare in findCheapestFares(params):
-            returnFares += findAlternativeFares(fare, PRICE_MAX - fare['outbound']['price']['value'])
+            returnFares += findAlternativeFares(fare, minDate, maxDate, maxPrice)
 
         for returnFare in returnFares:
             trips.append(createTrip(outFare, returnFare))
