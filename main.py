@@ -11,14 +11,15 @@ find ryanair round trips allowing multiple options for the "home" airport
 API_URL      = "https://services-api.ryanair.com/farfnd/v4/"
 
 CURRENCY      = os.getenv("CURRENCY", "EUR")              # eg EUR
-LOWEST_PRICE  = float(os.getenv("LOWEST_PRICE", 10))      # eg 10
+LOWEST_PRICE  = float(os.getenv("LOWEST_PRICE", 0))       # eg 10
+PRICE_MAX     = float(os.getenv("PRICE_MAX"))             # eg 100
 DATE_MIN      = os.getenv("DATE_MIN")                     # eg 2024-06-01
 DATE_MAX      = os.getenv("DATE_MAX")                     # eg 2024-06-30
 DAYS_MIN      = int(os.getenv("DAYS_MIN"))                # eg 3
 DAYS_MAX      = int(os.getenv("DAYS_MAX"))                # eg 6
 HOME_AIRPORTS = os.getenv("HOME_AIRPORTS").split(',')     # eg KRK,KTW
 DEST_AIRPORTS = os.getenv("DEST_AIRPORTS", "").split(',') # eg FCO,CPH
-PRICE_MAX     = float(os.getenv("PRICE_MAX"))             # eg 600
+DEST_COUNTRY  = os.getenv("DEST_COUNTRY", "")                 # eg ITA
 PASSENGERS    = int(os.getenv("PASSENGERS", 1))           # eg 3
 
 request_count = 0
@@ -35,10 +36,6 @@ requests.get = count_requests(requests.get)
 def addDaysToDate(d, days):
     obj = datetime.fromisoformat(d)
     return (obj + timedelta(days=days)).strftime("%Y-%m-%d")
-
-def findCheapestFares(params):
-    data = requests.get(API_URL + "oneWayFares", params=params).json()
-    return data['fares'] if 'fares' in data else []
 
 def getMonthsBetween(dateMin, dateMax):
     current = datetime.strptime(dateMin, "%Y-%m-%d").replace(day=1)
@@ -93,10 +90,12 @@ createTrip = lambda outFare, returnFare: {
     'totalPrice': outFare["outbound"]["price"]["value"] + returnFare["outbound"]["price"]["value"]
 }
 
+def findCheapestFares(params):
+    data = requests.get(API_URL + "oneWayFares", params=params).json()
+    return data['fares'] if 'fares' in data else []
+
 def alternativeFlightsFilter(flight, minDate, maxDate, maxPrice):
-    if flight['price'] is None:
-        return False
-    if flight['price']['value'] > maxPrice:
+    if flight['price'] is None or flight['price']['value'] > maxPrice:
         return False
 
     minDatetime = datetime.strptime(minDate, "%Y-%m-%d")
@@ -137,7 +136,9 @@ if __name__ == "__main__":
         "outboundDepartureDateTo": DATE_MAX,
         "priceValueTo": int(PRICE_MAX - LOWEST_PRICE),
     }
-    if "" not in DEST_AIRPORTS:
+    if DEST_COUNTRY != "":
+        params["arrivalCountryCode"] = DEST_COUNTRY
+    elif "" not in DEST_AIRPORTS:
         params["arrivalAirportIataCodes"] = DEST_AIRPORTS
 
     outFares = []
