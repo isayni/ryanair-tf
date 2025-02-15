@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 from datetime import datetime, timedelta
 from functools import wraps
+import argparse
+import logging
 import os
 import json
 import requests
@@ -9,18 +11,45 @@ find ryanair round trips allowing multiple options for the "home" airport
 '''
 
 API_URL      = "https://services-api.ryanair.com/farfnd/v4/"
+ARGS = None
 
-CURRENCY      = os.getenv("CURRENCY", "EUR")              # eg EUR
-LOWEST_PRICE  = float(os.getenv("LOWEST_PRICE", 0))       # eg 10
-PRICE_MAX     = float(os.getenv("PRICE_MAX"))             # eg 100
-DATE_MIN      = os.getenv("DATE_MIN")                     # eg 2024-06-01
-DATE_MAX      = os.getenv("DATE_MAX")                     # eg 2024-06-30
-DAYS_MIN      = int(os.getenv("DAYS_MIN"))                # eg 3
-DAYS_MAX      = int(os.getenv("DAYS_MAX"))                # eg 6
-HOME_AIRPORTS = os.getenv("HOME_AIRPORTS").split(',')     # eg KRK,KTW
-DEST_AIRPORTS = os.getenv("DEST_AIRPORTS", "").split(',') # eg FCO,CPH
-DEST_COUNTRY  = os.getenv("DEST_COUNTRY", "")                 # eg ITA
-PASSENGERS    = int(os.getenv("PASSENGERS", 1))           # eg 3
+def add_common_arguments_search(parser):
+    parser.add_argument("--date-min", default=datetime.today().strftime("%Y-%m-%d"), help="start of the calendar window to search")
+    parser.add_argument("--date-max", default=(datetime.today() + timedelta(days=30)).strftime("%Y-%m-%d"), help="end of the calendar window to search")
+    parser.add_argument("--home-airports", nargs="+", required=True, help="list of airports' iata codes to fly from and return to")
+    parser.add_argument("--price-max", type=float, required=True, help="the maximum cost in the specified currency of the whole trip")
+    parser.add_argument("--currency", default="EUR", help="code of currency to use")
+    parser.add_argument("--passengers", type=int, default=1, help="number of passengers")
+    dest_group = parser.add_mutually_exclusive_group(required=False)
+    dest_group.add_argument("--dest-airports", nargs="+", help="list of destination airports' iata codes")
+    dest_group.add_argument("--dest-country", help="code of destination country")
+
+def setup_parser():
+    global ARGS
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command", help="command to use", required=True)
+    search_parser = subparsers.add_parser("search")
+    search_subparsers = search_parser.add_subparsers(dest="subcommand", help="what to search for")
+    search_oneway_parser = search_subparsers.add_parser("oneway")
+    search_return_parser = search_subparsers.add_parser("return")
+
+    parser.add_argument("--debug", action="store_true", default=False, help="print debug information")
+
+    add_common_arguments_search(search_oneway_parser)
+    add_common_arguments_search(search_return_parser)
+
+    search_return_parser.add_argument("--lowest-price", type=float, default=0, help="the lowest price of a flight in the specified currency that you expect to find (use for better optimization)")
+    search_return_parser.add_argument("--days-min", default=1, type=int, help="minimum number of days for the whole trip")
+    search_return_parser.add_argument("--days-max", default=7, type=int, help="maximum number of days for the whole trip")
+
+    ARGS = parser.parse_args()
+
+    log_level = logging.DEBUG if ARGS.debug else logging.ERROR
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s [%(levelname)s] [%(module)s.%(funcName)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
 
 request_count = 0
 def count_requests(func):
@@ -33,11 +62,11 @@ def count_requests(func):
 
 requests.get = count_requests(requests.get)
 
-def addDaysToDate(d, days):
+def add_days_to_date(d, days):
     obj = datetime.fromisoformat(d)
     return (obj + timedelta(days=days)).strftime("%Y-%m-%d")
 
-def getMonthsBetween(dateMin, dateMax):
+def get_months_between(dateMin, dateMax):
     current = datetime.strptime(dateMin, "%Y-%m-%d").replace(day=1)
     end = datetime.strptime(dateMax, "%Y-%m-%d")
 
@@ -52,7 +81,7 @@ def getMonthsBetween(dateMin, dateMax):
 
     return first_days
 
-flightToFare = lambda flight, homeIata, homeCity, destIata, destCity: {
+flight_to_fare = lambda flight, homeIata, homeCity, destIata, destCity: {
     'outbound': {
         'departureAirport': {
             'iataCode': homeIata,
@@ -74,7 +103,7 @@ flightToFare = lambda flight, homeIata, homeCity, destIata, destCity: {
     }
 }
 
-createTrip = lambda outFare, returnFare: {
+create_trip = lambda outFare, returnFare: {
     'outbound': {
         'home': f'{outFare["outbound"]["departureAirport"]["city"]["name"]}/{outFare["outbound"]["departureAirport"]["iataCode"]}',
         'destination': f'{outFare["outbound"]["arrivalAirport"]["city"]["name"]}/{outFare["outbound"]["arrivalAirport"]["iataCode"]}',
@@ -90,11 +119,11 @@ createTrip = lambda outFare, returnFare: {
     'totalPrice': outFare["outbound"]["price"]["value"] + returnFare["outbound"]["price"]["value"]
 }
 
-def findCheapestFares(params):
+def find_cheapest_fares(params):
     data = requests.get(API_URL + "oneWayFares", params=params).json()
     return data['fares'] if 'fares' in data else []
 
-def alternativeFlightsFilter(flight, minDate, maxDate, maxPrice):
+def alternative_flights_filter(flight, minDate, maxDate, maxPrice):
     if flight['price'] is None or flight['price']['value'] > maxPrice:
         return False
 
@@ -104,69 +133,75 @@ def alternativeFlightsFilter(flight, minDate, maxDate, maxPrice):
 
     if flightDatetime < minDatetime:
         return False
-    if flightDatetime - timedelta(days=DAYS_MIN) > maxDatetime:
+    if flightDatetime - timedelta(days=ARGS.days_min) > maxDatetime:
         return False
 
     return True
 
-def findAlternativeFares(fare, minDate, maxDate, maxPrice):
+def find_alternative_fares(fare, minDate, maxDate, maxPrice):
     home     = fare['outbound']['departureAirport']['iataCode']
     homeCity = fare['outbound']['departureAirport']['city']['name']
     dest     = fare['outbound']['arrivalAirport']['iataCode']
     destCity = fare['outbound']['arrivalAirport']['city']['name']
     flights = []
 
-    for month in getMonthsBetween(DATE_MIN, DATE_MAX):
+    for month in get_months_between(minDate, maxDate):
         params = {
-            "currency": CURRENCY,
+            "currency": ARGS.currency,
             "outboundMonthOfDate": month,
         }
 
         data = requests.get(API_URL + f"oneWayFares/{home}/{dest}/cheapestPerDay", params=params).json()
-        flights += list(filter(lambda f: alternativeFlightsFilter(f, minDate, maxDate, maxPrice), data['outbound']['fares']))
+        flights += list(filter(lambda f: alternative_flights_filter(f, minDate, maxDate, maxPrice), data['outbound']['fares']))
 
-    return [flightToFare(flight, home, homeCity, dest, destCity) for flight in flights]
+    return [flight_to_fare(flight, home, homeCity, dest, destCity) for flight in flights]
 
-if __name__ == "__main__":
+def find_return_trips():
     trips = []
     params = {
-        "currency": CURRENCY,
-        "departureAirportIataCodes": HOME_AIRPORTS,
-        "outboundDepartureDateFrom": DATE_MIN,
-        "outboundDepartureDateTo": DATE_MAX,
-        "priceValueTo": int(PRICE_MAX - LOWEST_PRICE),
+        "currency": ARGS.currency,
+        "departureAirportIataCodes": ARGS.home_airports,
+        "outboundDepartureDateFrom": ARGS.date_min,
+        "outboundDepartureDateTo": ARGS.date_max,
+        "priceValueTo": int(ARGS.price_max - ARGS.lowest_price),
     }
-    if DEST_COUNTRY != "":
-        params["arrivalCountryCode"] = DEST_COUNTRY
-    elif "" not in DEST_AIRPORTS:
-        params["arrivalAirportIataCodes"] = DEST_AIRPORTS
+    if ARGS.dest_country: # destination country is specified
+        params["arrivalCountryCode"] = ARGS.dest_country
+    elif "" not in ARGS.dest_airports: # destination airport(s) specified
+        params["arrivalAirportIataCodes"] = ARGS.dest_airports
 
     outFares = []
-    for fare in findCheapestFares(params):
-        outFares += findAlternativeFares(fare, DATE_MIN, DATE_MAX, int(PRICE_MAX - LOWEST_PRICE))
+    for fare in find_cheapest_fares(params):
+        outFares += find_alternative_fares(fare, ARGS.date_min, ARGS.date_max, int(ARGS.price_max - ARGS.lowest_price))
 
     for outFare in outFares:
-        maxPrice = int(PRICE_MAX - outFare['outbound']['price']['value'])
-        minDate = addDaysToDate(outFare['outbound']['arrivalDate'], DAYS_MIN)
-        maxDate = addDaysToDate(outFare['outbound']['arrivalDate'], DAYS_MAX)
+        maxPrice = int(ARGS.price_max - outFare['outbound']['price']['value'])
+        minDate = add_days_to_date(outFare['outbound']['arrivalDate'], ARGS.days_min)
+        maxDate = add_days_to_date(outFare['outbound']['arrivalDate'], ARGS.days_max)
         params = {
-            "currency": CURRENCY,
+            "currency": ARGS.currency,
             "departureAirportIataCode": outFare['outbound']['arrivalAirport']['iataCode'],
-            "arrivalAirportIataCodes": HOME_AIRPORTS,
+            "arrivalAirportIataCodes": ARGS.home_airports,
             "outboundDepartureDateFrom": minDate,
             "outboundDepartureDateTo": maxDate,
             "priceValueTo": maxPrice
         }
         returnFares = []
-        for fare in findCheapestFares(params):
-            returnFares += findAlternativeFares(fare, minDate, maxDate, maxPrice)
+        for fare in find_cheapest_fares(params):
+            returnFares += find_alternative_fares(fare, minDate, maxDate, maxPrice)
 
         for returnFare in returnFares:
-            trips.append(createTrip(outFare, returnFare))
+            trips.append(create_trip(outFare, returnFare))
 
     trips.sort(key=lambda x: x['totalPrice'])
+    return trips
 
-    print(json.dumps(trips, indent=2))
-    print(f"Made {request_count} requests to the API.")
+if __name__ == "__main__":
+    setup_parser()
+    if ARGS.command == "search":
+        if ARGS.subcommand == "return":
+            trips = find_return_trips()
 
+            print(json.dumps(trips, indent=2))
+            logging.info(f"Made {request_count} requests to the API in total")
 
