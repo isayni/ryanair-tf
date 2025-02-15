@@ -19,34 +19,34 @@ def get_months_between(datetime_min, datetime_max):
 
     return first_days
 
-def enrich_fare_info(fare, home_iata, home_city, dest_iata, dest_city):
-    fare['departureAirport'] = {
+def enrich_flight_info(flight, home_iata, home_city, dest_iata, dest_city):
+    flight['departureAirport'] = {
         'iataCode': home_iata,
         'city': {
             'name': home_city
         }
     }
-    fare['arrivalAirport'] = {
+    flight['arrivalAirport'] = {
         'iataCode': dest_iata,
         'city': {
             'name': dest_city
         }
     }
-    return fare
+    return flight
 
-def create_trip(outFare, returnFare):
+def create_trip(out_fare, return_fare):
     return {
         'outbound': {
-            'home': f'{outFare["departureAirport"]["city"]["name"]}/{outFare["departureAirport"]["iataCode"]}',
-            'destination': f'{outFare["arrivalAirport"]["city"]["name"]}/{outFare["arrivalAirport"]["iataCode"]}',
-            'takeoff': outFare["departureDate"],
-            'price': outFare["price"]["value"]
+            'home': f'{out_fare["departureAirport"]["city"]["name"]}/{out_fare["departureAirport"]["iataCode"]}',
+            'destination': f'{out_fare["arrivalAirport"]["city"]["name"]}/{out_fare["arrivalAirport"]["iataCode"]}',
+            'takeoff': out_fare["departureDate"],
+            'price': out_fare["price"]["value"]
         },
         'inbound': {
-            'home': f'{returnFare["departureAirport"]["city"]["name"]}/{returnFare["departureAirport"]["iataCode"]}',
-            'destination': f'{returnFare["arrivalAirport"]["city"]["name"]}/{returnFare["arrivalAirport"]["iataCode"]}',
-            'takeoff': returnFare["departureDate"],
-            'price': returnFare["price"]["value"]
+            'home': f'{return_fare["departureAirport"]["city"]["name"]}/{return_fare["departureAirport"]["iataCode"]}',
+            'destination': f'{return_fare["arrivalAirport"]["city"]["name"]}/{return_fare["arrivalAirport"]["iataCode"]}',
+            'takeoff': return_fare["departureDate"],
+            'price': return_fare["price"]["value"]
         },
-        'totalPrice': outFare["price"]["value"] + returnFare["price"]["value"]
+        'totalPrice': out_fare["price"]["value"] + return_fare["price"]["value"]
     }

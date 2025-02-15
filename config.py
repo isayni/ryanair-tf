@@ -2,9 +2,8 @@ import argparse
 from datetime import datetime, timedelta
 import logging
 
-API_URL      = "https://services-api.ryanair.com/farfnd/v4/"
-CURRENCY     = "EUR"
-PRICE_LOWEST = 0
+API_URL  = "https://services-api.ryanair.com/farfnd/v4/"
+CURRENCY = "EUR"
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -15,14 +14,14 @@ def parse_args():
     search_return_parser = search_subparsers.add_parser("return")
 
     parser.add_argument("--debug", action="store_true", default=False, help="print debug information")
+    parser.add_argument("--currency", default="EUR", help="code of currency to use")
 
     def add_common_arguments_search(parser):
         parser.add_argument("--date-min", default=datetime.today().strftime("%Y-%m-%d"), help="start of the calendar window to search")
         parser.add_argument("--date-max", default=(datetime.today() + timedelta(days=30)).strftime("%Y-%m-%d"), help="end of the calendar window to search")
         parser.add_argument("--home-airports", nargs="+", required=True, help="list of airports' iata codes to fly from and return to")
         parser.add_argument("--price-max", type=float, required=True, help="the maximum cost in the specified currency of the whole trip")
-        parser.add_argument("--currency", default="EUR", help="code of currency to use")
-        parser.add_argument("--passengers", type=int, default=1, help="number of passengers")
+        # parser.add_argument("--passengers", type=int, default=1, help="number of passengers")
         dest_group = parser.add_mutually_exclusive_group(required=False)
         dest_group.add_argument("--dest-airports", nargs="+", help="list of destination airports' iata codes")
         dest_group.add_argument("--dest-country", help="code of destination country")
@@ -44,9 +43,7 @@ def parse_args():
     )
 
     global CURRENCY
-    global PRICE_LOWEST
 
     CURRENCY     = args.currency
-    PRICE_LOWEST = args.price_lowest
 
     return args
