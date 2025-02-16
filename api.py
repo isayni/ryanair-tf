@@ -14,6 +14,27 @@ def count_requests(func):
 
 requests.get = count_requests(requests.get)
 
+def get_round_trip_fares(args):
+    params = {
+        "currency": config.CURRENCY,
+        "departureAirportIataCode": args.home_airports[0],
+        "outboundDepartureDateFrom": args.date_min,
+        "outboundDepartureDateTo": args.date_max,
+        "inboundDepartureDateFrom": args.date_min,
+        "inboundDepartureDateTo": args.date_max,
+        "durationFrom": args.days_min,
+        "durationTo": args.days_max,
+        "adultPaxCount": args.passengers,
+        "priceValueTo": args.price_max * args.passengers
+    }
+    if args.dest_country:
+        params["arrivalCountryCode"] = args.dest_country
+    elif args.dest_airports:
+        params["arrivalAirportIataCodes"] = args.dest_airports
+
+    data = requests.get(config.API_URL + "roundTripFares", params=params).json()
+    return data['fares'] if 'fares' in data else []
+
 def get_cheapest_flights(home_airports, date_min, date_max, price_max, dest_airports=None, dest_country=None):
     params = {
         "currency": config.CURRENCY,

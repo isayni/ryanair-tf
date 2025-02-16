@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from utils import get_months_between, add_days_to_date, enrich_flight_info, create_trip
-from api import get_cheapest_flights, get_cheapest_per_day
+from api import get_cheapest_flights, get_cheapest_per_day, get_round_trip_fares
 
 def find_alternative_flights(flight, datetime_min, datetime_max, price_max):
     def flights_filter(flight, datetime_min, datetime_max, price_max):
@@ -35,7 +35,11 @@ def find_alternative_flights(flight, datetime_min, datetime_max, price_max):
     return [enrich_flight_info(flight, home_iata, home_city, dest_iata, dest_city) for flight in flights]
 
 def search_single_home_return_trips(args):
-    return []
+    trips = []
+    for fare in get_round_trip_fares(args):
+        trips.append(create_trip(fare['outbound'], fare['inbound']))
+    return trips
+
 
 def search_multi_home_return_trips(args):
     trips = []

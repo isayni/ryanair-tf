@@ -21,7 +21,7 @@ def parse_args():
         parser.add_argument("--date-max", default=(datetime.today() + timedelta(days=30)).strftime("%Y-%m-%d"), help="end of the calendar window to search")
         parser.add_argument("--home-airports", nargs="+", required=True, help="list of airports' iata codes to fly from and return to")
         parser.add_argument("--price-max", type=float, required=True, help="the maximum cost in the specified currency of the whole trip")
-        # parser.add_argument("--passengers", type=int, default=1, help="number of passengers")
+        parser.add_argument("--passengers", type=int, default=1, help="number of passengers")
         dest_group = parser.add_mutually_exclusive_group(required=False)
         dest_group.add_argument("--dest-airports", nargs="+", help="list of destination airports' iata codes")
         dest_group.add_argument("--dest-country", help="code of destination country")
