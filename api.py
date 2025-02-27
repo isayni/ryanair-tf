@@ -55,9 +55,9 @@ def get_cheapest_per_day(home_iata, dest_iata, month):
     params = {
         "currency": config.CURRENCY,
         "outboundMonthOfDate": month,
+        "inboundMonthOfDate": month,
     }
-    data = requests.get(
-        config.API_URL + f"oneWayFares/{home_iata}/{dest_iata}/cheapestPerDay",
+    return requests.get(
+        config.API_URL + f"roundTripFares/{home_iata}/{dest_iata}/cheapestPerDay",
         params=params
     ).json()
-    return data['outbound']['fares'] if 'outbound' in data else []
