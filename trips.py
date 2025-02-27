@@ -4,7 +4,6 @@ from api import get_cheapest_flights, get_cheapest_per_day, get_round_trip_fares
 
 def find_alternative_flights(flight, datetime_min, datetime_max, price_max):
     def flights_filter(flight, datetime_min, datetime_max, price_max):
-        datetime_min.replace(hour=0)
         datetime_max.replace(hour=23, minute=59)
 
         if flight['price'] is None or flight['price']['value'] > price_max:
@@ -66,7 +65,7 @@ def find_alternative_round_trips(fare, args):
             if inbound['unavailable']:
                 continue
             date_in = datetime.fromisoformat(inbound['departureDate'])
-            if date_in < date_out:
+            if date_in < datetime.fromisoformat(outbound['arrivalDate']) + timedelta(hours=args.hours_min):
                 continue
             if inbound['price']['value'] + outbound['price']['value'] <= args.price_max:
                 outbound = enrich_flight_info(outbound, home_iata, home_city, dest_iata, dest_city)
@@ -103,9 +102,9 @@ def search_multi_home_return_trips(args):
 
     for out_flight in out_flights:
         if args.days_min == 0:
-            datetime_min = datetime.fromisoformat(out_flight['arrivalDate']).replace(hour=0, minute=0)
+            datetime_min = datetime.fromisoformat(out_flight['arrivalDate']) + timedelta(hours=args.hours_min)
         else:
-            datetime_min = (datetime.fromisoformat(out_flight['arrivalDate']) + timedelta(days=args.days_min))
+            datetime_min = (datetime.fromisoformat(out_flight['arrivalDate']) + timedelta(days=args.days_min)).replace(hour=0, minute=0)
         datetime_max = min(
             datetime.fromisoformat(args.date_max),
             datetime.fromisoformat(out_flight['arrivalDate']) + timedelta(days=args.days_max)

@@ -32,6 +32,7 @@ def parse_args():
     search_return_parser.add_argument("--price-lowest", type=float, default=0, help="the lowest price of a flight in the specified currency that you expect to find (use for better optimization)")
     search_return_parser.add_argument("--days-min", default=1, type=int, help="minimum number of days for the whole trip")
     search_return_parser.add_argument("--days-max", default=7, type=int, help="maximum number of days for the whole trip")
+    search_return_parser.add_argument("--hours-min", default=6, type=int, help="minimum number of hours for the whole trip (used only for same day return searches)")
 
     args = parser.parse_args()
 
