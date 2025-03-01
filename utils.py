@@ -1,9 +1,5 @@
 from datetime import datetime, timedelta
 
-def add_days_to_date(date, days):
-    obj = datetime.fromisoformat(date)
-    return (obj + timedelta(days=days)).strftime("%Y-%m-%d")
-
 def get_months_between(datetime_min, datetime_max):
     current = datetime_min.replace(day=1)
     end = datetime_max
@@ -34,19 +30,25 @@ def enrich_flight_info(flight, home_iata, home_city, dest_iata, dest_city):
     }
     return flight
 
-def create_trip(out_fare, return_fare):
-    return {
+def create_trip(out_fare, return_fare=None):
+    trip = {
         'outbound': {
             'home': f'{out_fare["departureAirport"]["city"]["name"]}/{out_fare["departureAirport"]["iataCode"]}',
             'destination': f'{out_fare["arrivalAirport"]["city"]["name"]}/{out_fare["arrivalAirport"]["iataCode"]}',
-            'takeoff': out_fare["departureDate"],
+            'departure': out_fare["departureDate"],
+            'arrival': out_fare["arrivalDate"],
             'price': out_fare["price"]["value"]
-        },
-        'inbound': {
+        }
+    }
+    if return_fare:
+        trip['inbound'] = {
             'home': f'{return_fare["departureAirport"]["city"]["name"]}/{return_fare["departureAirport"]["iataCode"]}',
             'destination': f'{return_fare["arrivalAirport"]["city"]["name"]}/{return_fare["arrivalAirport"]["iataCode"]}',
-            'takeoff': return_fare["departureDate"],
+            'departure': return_fare["departureDate"],
+            'arrival': return_fare["arrivalDate"],
             'price': return_fare["price"]["value"]
-        },
-        'totalPrice': out_fare["price"]["value"] + return_fare["price"]["value"]
-    }
+        }
+        trip['totalPrice'] = out_fare["price"]["value"] + return_fare["price"]["value"]
+    else:
+        trip['totalPrice'] = out_fare["price"]["value"]
+    return trip
