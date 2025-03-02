@@ -1,9 +1,24 @@
 import argparse
+import sys
 from datetime import datetime, timedelta
 import logging
 
 API_URL  = "https://services-api.ryanair.com/farfnd/v4/"
 CURRENCY = "EUR"
+
+def validate_args(args):
+    if args.command == "search":
+        if args.passengers < 1:
+            sys.exit("number of passengers cannot be less than 1")
+        if datetime.fromisoformat(args.date_min) < datetime.today():
+            sys.exit("date-min cannot be earlier than today")
+        if datetime.fromisoformat(args.date_max) < datetime.today():
+            sys.exit("date-max cannot be earlier than today")
+        if args.subcommand == "return":
+            if args.days_min > args.days_max:
+                sys.exit("days-min cannot be greater than days-max")
+        if args.subcommand == "oneway":
+            pass
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -35,6 +50,7 @@ def parse_args():
     search_return_parser.add_argument("--hours-min", default=6, type=int, help="minimum number of hours for the whole trip (used only for same day return searches)")
 
     args = parser.parse_args()
+    validate_args(args)
 
     log_level = logging.DEBUG if args.debug else logging.ERROR
     logging.basicConfig(
